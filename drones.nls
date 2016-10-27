@@ -1,0 +1,225 @@
+breed [drones drone]
+
+drones-own[
+  finished? ; Is the goal reached ?
+  dead?
+  speed maxdir ; maximal speed of a car, and max angle
+  last-send-time ; communication historical time-stamp
+  target ; spotted target they're chasing
+  policy ; 0 = random  1 = patrol
+  hit-points
+  energy ;
+  incoming-queue ; liste des msg reçus
+  mission ; explorer une zone, chasser un enemi, defendre un convoi specifique..
+  ] ;toutes les turtles ont deja beliefs et intentions
+
+
+
+
+;#######################################################################################################################
+to setup-drones
+   if nb-drones > 0 [
+     
+   let base-min-pxcor min [pxcor] of (patches with [hangar? and pzcor = mapAlt])
+   ;let base-max-pxcor max [pxcor] of (patches with [hangar? and pzcor = mapAlt])
+   let base-min-pycor min [pycor] of (patches with [hangar? and pzcor = mapAlt])
+   ;let base-max-pycor max [pycor] of (patches with [hangar? and pzcor = mapAlt])
+
+    ; creation des voitures du convoi et cortege
+    create-drones nb-drones [ 
+      setxy  base-min-pxcor base-min-pycor
+
+      ]
+    let drone-count 0
+    ask drones
+    [
+      ; Init apparence NetLogo
+      set shape "airplane"
+      set color yellow
+;      set x
+      ; Init vars convois
+      set speed 0.2 * simu-speed
+      set maxdir 10 * simu-speed
+      set heading 0
+;      set roll 0
+      set pitch 0
+      set dead? false
+      set target nobody
+      set policy 0
+      set hit-points 5
+      set energy initial-energy
+      set beliefs []
+      set intentions []
+      set incoming-queue []
+      ; Visu
+      set label who ; display the car names
+     
+      if drone-count mod 4 = 0 [ set mission [ "protect" "ahead" ] ]
+      if drone-count mod 4 = 1 [ set mission [ "protect" "left" ] ]
+      if drone-count mod 4 = 2 [ set mission [ "protect" "right" ] ]
+      if drone-count mod 4 = 3 [ set mission [ "protect" "behind" ] ]
+      set drone-count drone-count + 1
+    ]
+   ]
+end
+
+to go-drones
+  ask drones[
+    if ([hangar?] of patch-here = true) [set energy initial-energy]
+    if hit-points = 0 [ die ]
+    if energy = 0 [ die ]
+    send-beliefs
+    interpret-messages
+    ifelse not fueled [refuel] 
+    [
+      ifelse target = nobody
+      [
+        do-mission
+        select-target
+      ] 
+      [
+        move-towards-target
+        if (distance target <= drone-firing-range) [fire-at-target]
+      ] 
+    ]
+  ]
+end
+
+to select-target
+  let targets enemies in-cone drone-vision-range drone-vision-angle
+  ;spot-enemies targets
+  if any? targets [
+    set target (min-one-of targets [distance myself]) ; on target le convoir le plus proche
+    spot-enemy target
+  ]
+end
+
+to move-drone
+  if policy = 0 [ move-randomly ]
+  if policy = 1 [ move-randomly ]
+  set energy (energy - 1)
+end
+
+to do-mission  ;realisation de la mission assignee par le leader du convoi
+  if item 0 mission = "protect"
+  [
+    let target-patch one-of patches with [pzcor = mapAlt and distance (convoi (min [who] of convois)) < 30 ]
+    face target-patch
+    fd speed
+    set energy energy - 1
+  ]
+end
+
+to move-towards-target
+  face target
+  spot-enemy target
+  fd speed
+  set energy (energy - 1)
+;  ifelse not [obstacle?] of patch-ahead 1 [
+;    fd speed
+;    set energy (energy - 1)
+;  ]
+;  [
+;    rt random 5 ;; turn right
+;  ]
+;  face target
+end
+
+to fire-at-target
+  let id [who] of target
+  let hp [hit-points] of target
+  if hp = 1 [enemy-killed id]
+  ask target [ set hit-points (hit-points - 1)]
+end
+
+to move-randomly
+;  ifelse not [obstacle?] of patch-ahead 1 [
+;    fd speed
+;  ]
+;  [
+;    rt random 5 ;; turn right
+;  ]
+  if (random 100 > 80)
+  [ 
+    ifelse (random 2 = 0)  [ rt (random 60) ] [ lt (random 60) ] 
+  ]
+  fd speed
+end
+
+to refuel
+  let target-patch (min-one-of (patches with [hangar? and pzcor = mapAlt]) [distance myself])
+  let distance-to-base distance target-patch
+  face target-patch
+  fd min list speed distance-to-base
+  if distance (min-one-of (patches with [hangar? and pzcor = mapAlt]) [distance myself]) = 0 [set energy initial-energy]
+end
+
+to-report fueled  ; true si assez d'energie pour rentrer a la base
+  let distance-to-base distance (min-one-of (patches with [hangar? and pzcor = mapAlt]) [distance myself])
+  ifelse (distance-to-base > energy - 1) [report false] [report true]
+end
+
+to-report target-down
+  report (target = nobody)
+end
+
+to send-beliefs
+  communicate-to-all-drones beliefs "beliefs"
+end
+
+to interpret-messages
+  while [length incoming-queue > 0]
+  [
+    let msg get-message
+    if item 0 msg = "beliefs" 
+    [ 
+      foreach (item 3 msg)
+      [
+        if belief-type ? = "dead-enemy" [ update-dead-enemy (belief-content ?) ]
+        if belief-type ? = "enemy-position" [ add-belief2 ? ]
+      ]
+    ]
+  ]
+end
+
+to communicate-to-drone [content receiver msg-type]
+  send add-content content add-receiver receiver create-message msg-type
+end
+
+to communicate-to-all-drones [content msg-type]
+  broadcast-to (drones in-radius drone-communication-range) add-content content create-message msg-type
+end
+
+to spot-enemy [ enemy ]
+  let id ([who] of enemy) 
+  let x ([xcor] of enemy)
+  let y ([ycor] of enemy)
+  let t ticks
+  let liste (list id x y t)
+  add-belief2 (create-belief "enemy-position" liste)
+end
+
+to update-dead-enemy [ id ]  ; met a jour dans les beliefs que l'enemy est mort
+  foreach beliefs
+  [
+    if belief-type ? = "enemy-position" [ remove-belief ? ]
+  ]
+  add-belief (create-belief "dead-enemy" id)
+end
+
+to enemy-killed [ id ]  ;quand on tue un enemi: on update et on transmet le msg? -> intentions
+  update-dead-enemy id
+end
+
+;to spot-enemies [ en ]
+;  let enemy-positions map enemy-position en
+;  add-belief (create-belief "enemy-positions" enemy-positions)
+;end  
+
+to-report enemy-position [ enemy ]
+  let id ([who] of enemy) 
+  let x ([xcor] of enemy)
+  let y ([ycor] of enemy)
+  let liste (list id x y)
+  report liste
+end

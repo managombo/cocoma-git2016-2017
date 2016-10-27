@@ -1,0 +1,142 @@
+breed [enemies enemy]
+
+
+enemies-own[
+  finished? ; Is the goal reached ?
+  dead?
+  speed maxdir ; maximal speed of a car, and max angle
+  last-send-time ; communication historical time-stamp
+  target ; spotted target they're chasing
+  policy ; 0 = random  1 = patrol
+  hit-points
+  ]
+
+
+
+
+;#######################################################################################################################
+to setup-enemies
+   if nb-enemies > 0 [
+
+    ; creation des voitures du convoi et cortege
+    create-enemies nb-enemies [ 
+      let x-cor 0
+      let y-cor 0
+      ask one-of patches with [not obstacle?] [
+         set x-cor pxcor 
+         set y-cor pycor
+      ]
+      setxy  x-cor y-cor
+
+      ]
+    ask enemies
+    [
+      ; Init apparence NetLogo
+      set shape "car"
+      set color red
+;      set x
+      ; Init vars convois
+      set speed 0.05 * simu-speed
+      set maxdir 10 * simu-speed
+      set heading 0
+;      set roll 0
+      set pitch 0
+      set dead? false
+      set target nobody
+      set policy 0
+      set hit-points 3
+
+      ; Visu
+      set label who ; display the car names
+    ]
+
+    ; get the id of the first one
+;    let first-car min [who] of convois
+;    let last-car max [who] of convois
+
+    ; configure the leader
+;    ask convoi first-car [
+;      set leader? true
+;      set color orange
+;      move-to patch base-max-pxcor base-max-pycor 1
+;    ]
+;
+;    ; configure the last car as the critical one
+;    ask convoi last-car [
+;      set to-protect? true
+;      set color yellow
+;    ]
+;
+;    ; deploying the other car
+;    if nb-cars > 1 [
+;      ; ask non leader cars
+;      ask turtle-set sort-on [who] convois with [who > first-car]
+;      [
+;        ; we create a link between them
+;        create-convoi-link-to turtle (who - 1)
+;        ;if who >= 4 and who mod 2 = 0 [ create-convoi-link-with turtle (who - 3) ]
+;
+;        ; deploying
+;        ifelse (who - 1) mod 2 = 0 [ set xcor base-min-pxcor ] [ set xcor base-max-pxcor ] ; a gauche ou a droite selon le nombre (pair ou impair respectivement)
+;        set ycor base-max-pycor - (floor (who / 2) / (nb-cars / 2) * (base-max-pycor - base-min-pycor)) ; d'une rangee de plus en plus basse toutes les deux voitures
+;        set zcor solAlt
+;      ]
+;
+;    ]
+  ]
+end
+
+to go-enemy
+  ask enemies[
+    if hit-points <= 0 [ die ]
+    ifelse target = nobody
+    [
+      move-enemy
+      select-target-enemy
+    ] 
+    [
+      move-towards-target-enemy
+      if (distance target <= drone-firing-range) [fire-at-target-enemy]
+    ] 
+  ]
+end
+
+to select-target-enemy
+  let targets convois in-cone enemy-vision-range enemy-vision-angle
+  if any? targets [
+    set target (min-one-of targets [distance myself]) ; on target le convoir le plus proche
+  ]
+end
+
+to move-enemy
+  if policy = 0 [ move-randomly-enemy ]
+  if policy = 1 [ move-randomly-enemy ]
+end
+
+to move-towards-target-enemy
+  face target
+  ifelse not [obstacle?] of patch-ahead 1 [
+    fd speed
+  ]
+  [
+    rt random 5 ;; turn right
+  ]
+  face target
+end
+
+to fire-at-target-enemy
+  ask target [ set hit-points (hit-points - 1)]
+end
+
+to move-randomly-enemy
+  if (random 100 > 80)
+  [ 
+    ifelse (random 2 = 0)  [ rt (random 60) ] [ lt (random 60) ] 
+  ]
+  ifelse not [obstacle?] of patch-ahead 1 [
+    fd speed
+  ]
+  [
+    ifelse (random 2 = 0)  [ rt (random 60) ] [ lt (random 60) ] 
+  ]
+end
