@@ -5,19 +5,28 @@ __includes["convois.nls"]
 
 ;environment definition
 to setup-env
-  ask patches [set obstacle? false set base? false set hangar? false set objectif? false set bridge? false]
+   ;+++++++dima modif ++++++++++
+  ask patches [set obstacle? false set base? false set hangar? false set objectif? false set bridge? false set mountain? false]
+;----------------dima modif  --------------------------
+
+  ;ask patches [set obstacle? false set base? false set hangar? false set objectif? false set bridge? false]
 
   ; Herbe
-  ask patches with [pzcor = mapAlt][set pcolor green + (random-float 2) - 1]
+  ;ask patches with [pzcor = mapAlt][set pcolor green + (random-float 2) - 1]
+   ;++++++++++++ modif dima -----------------------
+  ;ask patches with [pzcor = mapAlt][set pcolor green + (random-float 2) - 1]
+  ask patches with [pzcor = mapAlt][set pcolor green + (random-float 2) - 1 set alt (mapAlt - 1)]
+  ;--------------------modif dima--------------
 
-  ; Montagnes
-if nb-mountains > 0 [
-  repeat nb-mountains [
 
-       
-
-    ]
-  ]
+;  ; Montagnes
+;if nb-mountains > 0 [
+;  repeat nb-mountains [
+;
+;       
+;
+;    ]
+;  ]
 
   ; Rivieres
   if nb-rivers > 0 [
@@ -81,6 +90,13 @@ if nb-mountains > 0 [
   ask patches with[pzcor <= solAlt and pxcor >= 0 and pxcor < 3 and pycor >= 0 and pycor < 5][set pcolor 3 set obstacle? true set base? false set hangar? false] ; Batiment
   ask patches with [pzcor < 5 and pxcor = 0 and pycor = 0 and pzcor > 0 ] [ set pcolor 3 set obstacle? true set base? false set hangar? false] ; Antenne
 
+  ;++++++++++++++++++dima modif ---------------------
+
+  ; Montagnes
+  create_mountain nb-mountains
+  ask patches with [alt > 0][set obstacle? true]
+  ;-------------------modif dima -----------------------
+
   ; Copie des obstacles: on s'assure que les patchs au niveau solAlt ont la meme valeur obstacle? que leur patch en-dessous au niveau mapAlt (assure que enemy-random-move fonctionne bien et facilite la detection des obstacles car pas besoin de regarder au niveau mapAlt mais directement dans les patchs solAlt)
   ask patches with [[obstacle?] of patch-at 0 0 -1] [set obstacle? true]
 end
@@ -94,4 +110,54 @@ end
 ;       set zcor random alt-max
 ;end
 
+;++++++++++++++++++++++++++++++++dima modif ++++++++++++++++++++++++++++++++++++++++++++++
 
+to create_mountain [num]
+  repeat num [
+    ask one-of patches with [alt = mapAlt - 1 and pzcor = mapAlt and not hangar? and not base?] [
+      set alt random alt-max 
+     ; set plabel alt 
+    ]
+  ]
+  propagate-topology
+  ask patches with [pzcor = mapAlt] [
+    if alt > 0 [
+      let var_alt alt
+      while [var_alt > 0 ][ 
+      ask patch-at 0 0 var_alt [set pcolor gray + (round (8 * (alt-max - [alt] of myself) / alt-max)) / 2 set mountain? true]
+      set var_alt var_alt - 1
+      ]     
+    ]
+  ]
+end
+
+to propagate-topology
+
+   set patch-list patch-set patches with [(alt = mapAlt - 1) and any? neighbors with [not (alt <= mapAlt) and pzcor = mapAlt] and not hangar? and not base?]
+  while [any? patch-list][
+    ask patch-list [
+      let altmin alt-max
+      ask neighbors [if alt < altmin and pzcor = mapAlt and alt >= mapAlt [set altmin alt]]
+      ;set alt min [alt] of (neighbors with [not (alt = mapAlt - 1)  and pzcor = mapAlt])
+      
+           ifelse random-float 1 < 0.40 [
+             set alt altmin
+           ]
+           [
+             ifelse altmin = mapAlt [ set alt mapAlt ]
+             [
+             set alt altmin - 1 
+             ]
+            ]
+     ; set plabel alt
+      ;     set plabel -2
+      
+    ]
+    set patch-list patch-set patches with [(alt = mapAlt - 1) and any? neighbors with [not (alt <= mapAlt) and pzcor = mapAlt] and not hangar? and not base?]
+  ]
+  
+  ;propagate-topology patch-list
+end
+
+
+;-------------------------------dima modif ----------------------------------------

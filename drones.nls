@@ -27,8 +27,12 @@ to setup-drones
 
     ; creation des voitures du convoi et cortege
     create-drones nb-drones [ 
-      setxy  base-min-pxcor base-min-pycor
+      ;setxy  base-min-pxcor base-min-pycor
 
+            ; ++++++++++++++++++dima modif +++++
+      move-to patch base-min-pxcor base-min-pycor basseAlt
+      ; ---------------------dima modif ------
+      
       ]
     let drone-count 0
     ask drones
@@ -86,6 +90,9 @@ to go-drones
 end
 
 to select-target
+   ;++++++++dima modif ++++++++++++
+  ;let targets enemies in-cone drone-vision-range drone-vision-angle with [not is-hidden-by-mountain (self) (myself) (patches in-cone drone-vision-range drone-vision-angle with [mountains?])]
+  ;------dima modif ------------------
   let targets enemies in-cone drone-vision-range drone-vision-angle
   ;spot-enemies targets
   if any? targets [
@@ -93,6 +100,14 @@ to select-target
     spot-enemy target
   ]
 end
+
+
+;to-report is-hidden-by-mountain [spoting-turtle spoted-turtled mountain-patches]
+;  let min-distance-gap 100
+;  ask mountain-patches[ set distance-gap  ([distance spoting-turtle] of self) + ([distance spoted-turtled] of self)]
+;  report sum [distance ] of both-ends 
+;         - link-length < .1 / patch-size
+;end
 
 to move-drone
   if policy = 0 [ move-randomly ]
@@ -143,7 +158,11 @@ to move-randomly
   [ 
     ifelse (random 2 = 0)  [ rt (random 60) ] [ lt (random 60) ] 
   ]
-  fd speed
+  ;  +++++dima modif +++++++++++++++++
+  if [not mountain?] of patch-ahead 1 [fd speed]
+  ;---------dima modif --------------
+  
+  ;fd speed
 end
 
 to refuel

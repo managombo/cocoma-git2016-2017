@@ -20,6 +20,9 @@ globals [mapAlt solAlt basseAlt hauteAlt ; variables topologiques Z discretise: 
   mission-completed? mission-failed?
   send-interval ; communication period
   is-movie-recording?
+  ;++++++++++ dima modif +++++++
+  patch-list
+  ;--dima modif ----------
 
   ]
 turtles-own[
@@ -136,7 +139,7 @@ GRAPHICS-WINDOW
 0
 70
 0
-0
+30
 1
 0
 1
@@ -298,7 +301,7 @@ SWITCH
 305
 astar-visu
 astar-visu
-0
+1
 1
 -1000
 
@@ -403,7 +406,7 @@ INPUTBOX
 863
 436
 alt-max
-5
+20
 1
 0
 Number
